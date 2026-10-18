@@ -21,14 +21,25 @@ export async function POST(request: Request) {
   }
 
   const encoder = new TextEncoder();
+  let closed = false; // set when the browser disconnects
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (event: object) =>
-        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      const send = (event: object) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        } catch {
+          closed = true;
+        }
+      };
+
+      const t0 = Date.now();
 
       try {
         const sources = await hybridSearch(question, 6);
+        console.log(`[chat] retrieval took ${Date.now() - t0}ms (${sources.length} sources)`);
+        if (closed) return;
 
         send({
           type: "sources",
@@ -47,17 +58,32 @@ export async function POST(request: Request) {
           return;
         }
 
+        let first = true;
         for await (const piece of streamAnswer(buildUserPrompt(question, sources))) {
+          if (closed) break; // client left: stop generating
+          if (first) {
+            console.log(`[chat] first token after ${Date.now() - t0}ms`);
+            first = false;
+          }
           send({ type: "token", text: piece });
         }
         send({ type: "done" });
+        console.log(`[chat] finished in ${Date.now() - t0}ms${closed ? " (client disconnected)" : ""}`);
       } catch (err) {
-        console.error(err);
-        // Log the real error on the server; never send internal details to the browser.
+        if (!closed) console.error(err);
         send({ type: "error", message: "Something went wrong while answering. Please try again." });
       } finally {
-        controller.close();
+        if (!closed) {
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        }
       }
+    },
+    cancel() {
+      closed = true;
     },
   });
 

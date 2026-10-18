@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { extractPages, hasExtractableText } from "../../../lib/pdf";
@@ -24,16 +25,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "File is larger than 10 MB." }, { status: 413 });
   }
 
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const contentHash = createHash("sha256").update(bytes).digest("hex");
+  console.log(`[upload] ${file.name} hash=${contentHash.slice(0, 12)}`);
+
+  const existing = await prisma.document.findUnique({ where: { contentHash } });
+  if (existing) {
+    if (existing.status === "FAILED") {
+      // Allow retrying a file whose earlier attempt failed.
+      await prisma.document.delete({ where: { id: existing.id } });
+    } else {
+      return NextResponse.json(
+        { id: existing.id, status: existing.status, error: "This file was already uploaded." },
+        { status: 409 },
+      );
+    }
+  }
+
   const document = await prisma.document.create({
     data: {
       title: file.name.replace(/\.pdf$/i, ""),
       fileName: file.name,
+      contentHash,
       status: "PROCESSING",
     },
   });
 
   try {
-    const pages = await extractPages(new Uint8Array(await file.arrayBuffer()));
+    const pages = await extractPages(bytes);
 
     if (!hasExtractableText(pages)) {
       const error = "No extractable text. This looks like a scanned PDF (OCR is not supported yet).";

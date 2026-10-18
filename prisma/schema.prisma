@@ -18,6 +18,7 @@ model Document {
   id        String         @id @default(cuid())
   title     String
   fileName  String
+  contentHash String?        @unique
   status    DocumentStatus @default(PENDING)
   error     String?
   pageCount Int?
