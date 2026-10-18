@@ -1,0 +1,606 @@
+{
+  "label": "baseline",
+  "createdAt": "2026-10-18T18:00:06.178Z",
+  "k": 6,
+  "minVectorScore": 0.58,
+  "corpusChunks": 46,
+  "summary": [
+    {
+      "method": "vector",
+      "hit@1": "58%",
+      "hit@3": "79%",
+      "hit@6": "97%",
+      "MRR": "0.71"
+    },
+    {
+      "method": "keyword",
+      "hit@1": "61%",
+      "hit@3": "88%",
+      "hit@6": "94%",
+      "MRR": "0.75"
+    },
+    {
+      "method": "hybrid",
+      "hit@1": "64%",
+      "hit@3": "91%",
+      "hit@6": "97%",
+      "MRR": "0.78"
+    }
+  ],
+  "rows": [
+    {
+      "id": "s01",
+      "kind": "fact",
+      "question": "Why did the two brothers make a bet?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6758463800774419,
+      "ranks": {
+        "vector": 2,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "s03",
+      "kind": "fact",
+      "question": "What did the letter that came with the money say?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7146115780715749,
+      "ranks": {
+        "vector": 3,
+        "keyword": 1,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "s04",
+      "kind": "fact",
+      "question": "What did the narrator do for a living in San Francisco?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6454173213663719,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.1"
+    },
+    {
+      "id": "s05",
+      "kind": "fact",
+      "question": "How did the narrator end up in London?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.674642797779837,
+      "ranks": {
+        "vector": 1,
+        "keyword": 5,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.1"
+    },
+    {
+      "id": "s08",
+      "kind": "fact",
+      "question": "What did the tailor's clerk do when he saw the bill?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.693391380532165,
+      "ranks": {
+        "vector": 1,
+        "keyword": 2,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.6"
+    },
+    {
+      "id": "s11",
+      "kind": "fact",
+      "question": "How did the narrator know the American minister?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6809087390609665,
+      "ranks": {
+        "vector": 4,
+        "keyword": 1,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.15"
+    },
+    {
+      "id": "s14",
+      "kind": "fact",
+      "question": "How did the narrator help Hastings sell the mine?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7068342615486923,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.15"
+    },
+    {
+      "id": "s15",
+      "kind": "fact",
+      "question": "Why was there no dinner at the minister's party?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6943619858903336,
+      "ranks": {
+        "vector": 1,
+        "keyword": 3,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.9"
+    },
+    {
+      "id": "s17",
+      "kind": "fact",
+      "question": "How much was the certificate of deposit the narrator showed the brothers?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6611086236458746,
+      "ranks": {
+        "vector": 4,
+        "keyword": 2,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "s20",
+      "kind": "fact",
+      "question": "What happened to the million-pound note at the end?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7139333511904933,
+      "ranks": {
+        "vector": 5,
+        "keyword": null,
+        "hybrid": 5
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "s21",
+      "kind": "fact",
+      "question": "What salary did the narrator expect?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6771892805982568,
+      "ranks": {
+        "vector": 3,
+        "keyword": 2,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.13"
+    },
+    {
+      "id": "s26",
+      "kind": "fact",
+      "question": "Why did the narrator keep wearing his old rags sometimes?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6910975537165073,
+      "ranks": {
+        "vector": 4,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.8"
+    },
+    {
+      "id": "s02",
+      "kind": "paraphrase",
+      "question": "What experiment did the two old gentlemen want to try on a stranger?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6729076668584681,
+      "ranks": {
+        "vector": 2,
+        "keyword": null,
+        "hybrid": 5
+      },
+      "top": "the-1000000-bank-note p.1"
+    },
+    {
+      "id": "s06",
+      "kind": "paraphrase",
+      "question": "What food did the narrator stare at in the gutter?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6369331688531056,
+      "ranks": {
+        "vector": 2,
+        "keyword": 1,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.1"
+    },
+    {
+      "id": "s07",
+      "kind": "paraphrase",
+      "question": "How much money did the narrator think he held when he first looked at the note in the eating house?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7322093891461404,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "s16",
+      "kind": "paraphrase",
+      "question": "What did the guests eat instead of a sit-down dinner?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6146635927626249,
+      "ranks": {
+        "vector": 1,
+        "keyword": 5,
+        "hybrid": 2
+      },
+      "top": "the-1000000-bank-note p.11"
+    },
+    {
+      "id": "s18",
+      "kind": "paraphrase",
+      "question": "How is Portia related to the brothers?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6215381798771408,
+      "ranks": {
+        "vector": 3,
+        "keyword": 2,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.18"
+    },
+    {
+      "id": "s19",
+      "kind": "paraphrase",
+      "question": "What job did the narrator ask for in the end?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6567092597820551,
+      "ranks": {
+        "vector": null,
+        "keyword": 2,
+        "hybrid": 3
+      },
+      "top": "the-1000000-bank-note p.5"
+    },
+    {
+      "id": "s09",
+      "kind": "name",
+      "question": "What nickname did the newspapers give the narrator?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6497556892447353,
+      "ranks": {
+        "vector": 1,
+        "keyword": 2,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.8"
+    },
+    {
+      "id": "s10",
+      "kind": "name",
+      "question": "Which magazine published a caricature of the narrator?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6631632258803004,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.8"
+    },
+    {
+      "id": "s12",
+      "kind": "name",
+      "question": "Who is Portia Langham?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.646391664734123,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.9"
+    },
+    {
+      "id": "s13",
+      "kind": "name",
+      "question": "Who is Lloyd Hastings?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6048722354611449,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.9"
+    },
+    {
+      "id": "s23",
+      "kind": "name",
+      "question": "Who is the Duke of Shoreditch?",
+      "labelOk": true,
+      "gated": true,
+      "topScore": 0.5583276809181538,
+      "ranks": {
+        "vector": 4,
+        "keyword": 2,
+        "hybrid": null
+      },
+      "top": "(rejected by gate)"
+    },
+    {
+      "id": "s24",
+      "kind": "name",
+      "question": "Who is Harris?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.5970443024385775,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.7"
+    },
+    {
+      "id": "s25",
+      "kind": "name",
+      "question": "Whose suit did the tailor's proprietor give the narrator?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6939713234650069,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.7"
+    },
+    {
+      "id": "s22",
+      "kind": "multi",
+      "question": "How did the narrator become famous in London?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7000276898729618,
+      "ranks": {
+        "vector": 1,
+        "keyword": 2,
+        "hybrid": 1
+      },
+      "top": "the-1000000-bank-note p.8"
+    },
+    {
+      "id": "b01",
+      "kind": "fact",
+      "question": "How does the paper define an electronic coin?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6927306645527929,
+      "ranks": {
+        "vector": 2,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.2"
+    },
+    {
+      "id": "b02",
+      "kind": "paraphrase",
+      "question": "What problem remains if digital signatures are used without a trusted third party?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6720875408402981,
+      "ranks": {
+        "vector": 4,
+        "keyword": 1,
+        "hybrid": 2
+      },
+      "top": "bitcoin p.1"
+    },
+    {
+      "id": "b03",
+      "kind": "fact",
+      "question": "Can payments be verified without running a full network node?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7361345436770265,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.5"
+    },
+    {
+      "id": "b04",
+      "kind": "fact",
+      "question": "How is the proof-of-work difficulty adjusted?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7361215753358554,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.3"
+    },
+    {
+      "id": "b05",
+      "kind": "paraphrase",
+      "question": "How can disk space be saved once a coin's latest transaction is buried under many blocks?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7273241107616393,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.4"
+    },
+    {
+      "id": "b06",
+      "kind": "fact",
+      "question": "How does the paper compare its privacy with the traditional banking model?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6927994538867285,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.6"
+    },
+    {
+      "id": "b07",
+      "kind": "fact",
+      "question": "Do transaction broadcasts need to reach every node?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.7025339713712891,
+      "ranks": {
+        "vector": 1,
+        "keyword": 1,
+        "hybrid": 1
+      },
+      "top": "bitcoin p.4"
+    },
+    {
+      "id": "u01",
+      "kind": "unanswerable",
+      "question": "What is the name of the narrator's father?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.5892550580992971,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "the-1000000-bank-note p.9"
+    },
+    {
+      "id": "u02",
+      "kind": "unanswerable",
+      "question": "In what year was the story first published?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6329188080608988,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "the-1000000-bank-note p.9"
+    },
+    {
+      "id": "u03",
+      "kind": "unanswerable",
+      "question": "What was the name of the ship that picked up the narrator?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6169830557043404,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "the-1000000-bank-note p.1"
+    },
+    {
+      "id": "u04",
+      "kind": "unanswerable",
+      "question": "best pizza recipe",
+      "labelOk": true,
+      "gated": true,
+      "topScore": 0.528324335231654,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "(rejected by gate)"
+    },
+    {
+      "id": "u05",
+      "kind": "unanswerable",
+      "question": "What is the current price of Bitcoin?",
+      "labelOk": true,
+      "gated": true,
+      "topScore": 0.5779534930456711,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "(rejected by gate)"
+    },
+    {
+      "id": "u06",
+      "kind": "unanswerable",
+      "question": "Who funded the development of Bitcoin?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6049522893510481,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "bitcoin p.1"
+    },
+    {
+      "id": "u07",
+      "kind": "unanswerable",
+      "question": "What is the name of the brothers' butler?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.5997302529006561,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "the-1000000-bank-note p.2"
+    },
+    {
+      "id": "u08",
+      "kind": "unanswerable",
+      "question": "How many children do the narrator and Portia have?",
+      "labelOk": true,
+      "gated": false,
+      "topScore": 0.6642003715554444,
+      "ranks": {
+        "vector": null,
+        "keyword": null,
+        "hybrid": null
+      },
+      "top": "the-1000000-bank-note p.18"
+    }
+  ]
+}

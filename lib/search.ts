@@ -53,7 +53,7 @@ export async function keywordSearch(query: string, limit = 8): Promise<SearchRes
 }
 
 const RRF_K = 60;
-const MIN_VECTOR_SCORE = 0.58;
+export const MIN_VECTOR_SCORE = Number(process.env.MIN_VECTOR_SCORE ?? 0.54);
 
 export type HybridResult = Omit<SearchResult, "score"> & {
   score: number; // fused RRF score
@@ -62,12 +62,7 @@ export type HybridResult = Omit<SearchResult, "score"> & {
   vectorScore: number | null;
 };
 
-export async function hybridSearch(query: string, limit = 8): Promise<HybridResult[]> {
-  const [vec, kw] = await Promise.all([vectorSearch(query, 20), keywordSearch(query, 20)]);
-
-  // Gate: if even the best semantic match is weak, nothing relevant is in the data.
-  if (vec.length === 0 || Number(vec[0].score) < MIN_VECTOR_SCORE) return [];
-
+export function fuseResults(vec: SearchResult[], kw: SearchResult[], limit = 8): HybridResult[] {
   const merged = new Map<string, HybridResult>();
 
   const add = (r: SearchResult, rank: number, kind: "vector" | "keyword") => {
@@ -97,4 +92,13 @@ export async function hybridSearch(query: string, limit = 8): Promise<HybridResu
   kw.forEach((r, i) => add(r, i + 1, "keyword"));
 
   return [...merged.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+export async function hybridSearch(query: string, limit = 8): Promise<HybridResult[]> {
+  const [vec, kw] = await Promise.all([vectorSearch(query, 20), keywordSearch(query, 20)]);
+
+  // Gate: if even the best semantic match is weak, nothing relevant is in the data.
+  if (vec.length === 0 || Number(vec[0].score) < MIN_VECTOR_SCORE) return [];
+
+  return fuseResults(vec, kw, limit);
 }

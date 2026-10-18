@@ -1,0 +1,132 @@
+export type EvalKind = "fact" | "paraphrase" | "name" | "multi" | "unanswerable";
+
+export type EvalCase = {
+  id: string;
+  kind: EvalKind;
+  question: string;
+  /** Short answer for human review (and for the answer evals later). Empty if unanswerable. */
+  expected: string;
+  /** Phrases copied from the document. A retrieved chunk is a hit if it contains ANY of them. */
+  evidence: string[];
+};
+
+export const cases: EvalCase[] = [
+  // The £1,000,000 Bank-Note: plain facts
+  { id: "s01", kind: "fact", question: "Why did the two brothers make a bet?",
+    expected: "To settle an argument over whether an honest stranger with only a million-pound note could survive 30 days in London; one brother bet £20,000 he could.",
+    evidence: ["would bet twenty thousand pounds that the man would live thirty days"] },
+  { id: "s03", kind: "fact", question: "What did the letter that came with the money say?",
+    expected: "The money was lent for thirty days without interest; he must report back, and if the writer wins his bet he gets any job in his gift.",
+    evidence: ["It is lent to you for thirty days, without interest"] },
+  { id: "s04", kind: "fact", question: "What did the narrator do for a living in San Francisco?",
+    expected: "He was a mining-broker's clerk.",
+    evidence: ["mining-broker’s clerk in San Francisco"] },
+  { id: "s05", kind: "fact", question: "How did the narrator end up in London?",
+    expected: "A boat trip on the bay carried him out to sea and a brig bound for London picked him up; he worked his passage.",
+    evidence: ["picked up by a small brig which was bound for London"] },
+  { id: "s08", kind: "fact", question: "What did the tailor's clerk do when he saw the bill?",
+    expected: "His smile froze in shock.",
+    evidence: ["this smile froze solid"] },
+  { id: "s11", kind: "fact", question: "How did the narrator know the American minister?",
+    expected: "The minister and the narrator's father had been schoolmates and Yale students together.",
+    evidence: ["he and my father had been schoolmates in boyhood"] },
+  { id: "s14", kind: "fact", question: "How did the narrator help Hastings sell the mine?",
+    expected: "He let Hastings use his name, so Hastings could sell within a fortnight for three million, splitting the proceeds.",
+    evidence: ["sell out inside of the fortnight for three millions cash"] },
+  { id: "s15", kind: "fact", question: "Why was there no dinner at the minister's party?",
+    expected: "The guests couldn't agree on precedence, so nobody could sit down.",
+    evidence: ["the matter of precedence couldn’t be settled, and so there was no dinner"] },
+  { id: "s17", kind: "fact", question: "How much was the certificate of deposit the narrator showed the brothers?",
+    expected: "£200,000.",
+    evidence: ["Certificate of deposit for £200,000"] },
+  { id: "s20", kind: "fact", question: "What happened to the million-pound note at the end?",
+    expected: "The Bank cashed and cancelled it, and it was given to the couple as a wedding present and framed in their home.",
+    evidence: ["it has always hung in its frame in the sacredest place in our home"] },
+  { id: "s21", kind: "fact", question: "What salary did the narrator expect?",
+    expected: "He estimated six hundred to a thousand pounds a year (later he privately raised it).",
+    evidence: ["my estimate of the salary was six hundred to a thousand a year"] },
+  { id: "s26", kind: "fact", question: "Why did the narrator keep wearing his old rags sometimes?",
+    expected: "For the fun of buying trifles, being insulted, then silencing the scoffer with the note.",
+    evidence: ["I even kept my old suit of rags"] },
+
+  // The story: paraphrased questions (little word overlap with the text)
+  { id: "s02", kind: "paraphrase", question: "What experiment did the two old gentlemen want to try on a stranger?",
+    expected: "See what would happen to an honest, intelligent stranger left in London with only a million-pound note.",
+    evidence: ["turned adrift in London without a friend"] },
+  { id: "s06", kind: "paraphrase", question: "What food did the narrator stare at in the gutter?",
+    expected: "A half-eaten pear.",
+    evidence: ["tossed a luscious big pear"] },
+  { id: "s07", kind: "paraphrase", question: "How much money did the narrator think he held when he first looked at the note in the eating house?",
+    expected: "Five million dollars.",
+    evidence: ["Five millions of dollars"] },
+  { id: "s16", kind: "paraphrase", question: "What did the guests eat instead of a sit-down dinner?",
+    expected: "A standing lunch of sardines and a strawberry.",
+    evidence: ["plate of sardines and a strawberry"] },
+  { id: "s18", kind: "paraphrase", question: "How is Portia related to the brothers?",
+    expected: "The brother who made the bet is her step-father; the other is her Uncle Abel.",
+    evidence: ["he’s my step-papa"] },
+  { id: "s19", kind: "paraphrase", question: "What job did the narrator ask for in the end?",
+    expected: "Son-in-law, meaning he wants to marry Portia.",
+    evidence: ["Son-in-law"] },
+
+  // The story: names and exact terms
+  { id: "s09", kind: "name", question: "What nickname did the newspapers give the narrator?",
+    expected: "The vest-pocket million-pounder.",
+    evidence: ["vest-pocket million-pounder"] },
+  { id: "s10", kind: "name", question: "Which magazine published a caricature of the narrator?",
+    expected: "Punch.",
+    evidence: ["‘Punch’ caricatured me"] },
+  { id: "s12", kind: "name", question: "Who is Portia Langham?",
+    expected: "An English girl of twenty-two, the minister's daughter's visiting friend; the narrator falls in love with her.",
+    evidence: ["named Portia Langham"] },
+  { id: "s13", kind: "name", question: "Who is Lloyd Hastings?",
+    expected: "An American the narrator knew in San Francisco, in London trying to sell the Gould and Curry Extension mine.",
+    evidence: ["Mr. Lloyd Hastings", "to sell the Gould and Curry Extension"] },
+  { id: "s23", kind: "name", question: "Who is the Duke of Shoreditch?",
+    expected: "A guest at the minister's dinner who argued with the narrator over precedence.",
+    evidence: ["The Duke and Duchess of Shoreditch"] },
+  { id: "s24", kind: "name", question: "Who is Harris?",
+    expected: "The owner of the humble eating-house where the narrator had his first meal; his place became famous.",
+    evidence: ["I was the making of Harris"] },
+  { id: "s25", kind: "name", question: "Whose suit did the tailor's proprietor give the narrator?",
+    expected: "A suit made for the Hospodar of Halifax.",
+    evidence: ["Hospodar of Halifax"] },
+
+  // The story: answer spread over several places
+  { id: "s22", kind: "multi", question: "How did the narrator become famous in London?",
+    expected: "Newspapers followed him as the vest-pocket million-pounder, he outranked dukes in gossip columns, and Punch caricatured him.",
+    evidence: ["‘Punch’ caricatured me", "taking precedence of all dukes not royal", "vest-pocket million-pounder"] },
+
+  // Bitcoin paper
+  { id: "b01", kind: "fact", question: "How does the paper define an electronic coin?",
+    expected: "A chain of digital signatures; each owner signs a hash of the previous transaction and the next owner's public key.",
+    evidence: ["We define an electronic coin as a chain of digital signatures"] },
+  { id: "b02", kind: "paraphrase", question: "What problem remains if digital signatures are used without a trusted third party?",
+    expected: "Double-spending.",
+    evidence: ["main benefits are lost if a trusted third party is still required"] },
+  { id: "b03", kind: "fact", question: "Can payments be verified without running a full network node?",
+    expected: "Yes: keep the block headers of the longest proof-of-work chain (simplified payment verification).",
+    evidence: ["verify payments without running a full network node"] },
+  { id: "b04", kind: "fact", question: "How is the proof-of-work difficulty adjusted?",
+    expected: "By a moving average that targets an average number of blocks per hour.",
+    evidence: ["determined by a moving average targeting an average number of"] },
+  { id: "b05", kind: "paraphrase", question: "How can disk space be saved once a coin's latest transaction is buried under many blocks?",
+    expected: "Spent transactions before it can be discarded.",
+    evidence: ["Reclaiming Disk Space"] },
+  { id: "b06", kind: "fact", question: "How does the paper compare its privacy with the traditional banking model?",
+    expected: "Banks limit access to the parties involved and a trusted third party; here transactions are public, so privacy comes from anonymous public keys.",
+    evidence: ["achieves a level of privacy by limiting access to information"] },
+  { id: "b07", kind: "fact", question: "Do transaction broadcasts need to reach every node?",
+    expected: "No, only many nodes; they will get into a block before long.",
+    evidence: ["do not necessarily need to reach all nodes"] },
+
+  // Unanswerable: the documents don't contain the answer, so the right response is a refusal
+  { id: "u01", kind: "unanswerable", question: "What is the name of the narrator's father?", expected: "", evidence: [] },
+  { id: "u02", kind: "unanswerable", question: "In what year was the story first published?", expected: "", evidence: [] },
+  { id: "u03", kind: "unanswerable", question: "What was the name of the ship that picked up the narrator?", expected: "", evidence: [] },
+  { id: "u04", kind: "unanswerable", question: "best pizza recipe", expected: "", evidence: [] },
+  { id: "u05", kind: "unanswerable", question: "What is the current price of Bitcoin?", expected: "", evidence: [] },
+  { id: "u06", kind: "unanswerable", question: "Who funded the development of Bitcoin?", expected: "", evidence: [] },
+  { id: "u07", kind: "unanswerable", question: "What is the name of the brothers' butler?", expected: "", evidence: [] },
+  { id: "u08", kind: "unanswerable", question: "How many children do the narrator and Portia have?", expected: "", evidence: [] },
+];
