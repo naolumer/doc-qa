@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { extractCitations, splitCitations, type CitationResult } from "../lib/citations";
 
 type Source = { n: number; title: string; page: number; chunkIndex: number; text: string };
 type Message = {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  citations?: CitationResult;
   error?: string;
 };
 type Doc = {
@@ -26,6 +28,17 @@ const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
 const muted = "text-neutral-500 dark:text-neutral-400";
 const border = "border-neutral-200 dark:border-neutral-800";
+const pill =
+  "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-blue-600/15 px-1.5 text-xs font-medium text-blue-700 dark:text-blue-300";
+
+async function fetchDocs(): Promise<Doc[] | null> {
+  try {
+    const res = await fetch("/api/documents", { cache: "no-store" });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null; // keep the current list if the request fails
+  }
+}
 
 function Spinner() {
   return (
@@ -36,8 +49,53 @@ function Spinner() {
   );
 }
 
+function AnswerText({
+  text,
+  sourceCount,
+  onOpen,
+}: {
+  text: string;
+  sourceCount: number;
+  onOpen: (n: number) => void;
+}) {
+  return (
+    <p className="whitespace-pre-wrap wrap-break-words leading-relaxed">
+      {splitCitations(text).map((seg, i) =>
+        seg.type === "text" ? (
+          <span key={i}>{seg.text}</span>
+        ) : (
+          <span key={i} className="mx-0.5 inline-flex gap-0.5 align-baseline">
+            {seg.numbers.map((n, j) =>
+              n >= 1 && n <= sourceCount ? (
+                <button
+                  key={j}
+                  type="button"
+                  onClick={() => onOpen(n)}
+                  aria-label={`Show source ${n}`}
+                  className={`${pill} relative hover:bg-blue-600/25 before:absolute before:-inset-x-0.5 before:-inset-y-2.5 ${focusRing}`}
+                >
+                  {n}
+                </button>
+              ) : (
+                <span
+                  key={j}
+                  title="This source doesn’t exist"
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-500/15 px-1.5 text-xs text-neutral-500 line-through"
+                >
+                  {n}
+                </span>
+              ),
+            )}
+          </span>
+        ),
+      )}
+    </p>
+  );
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [openSource, setOpenSource] = useState<Record<number, number | null>>({});
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -54,18 +112,20 @@ export default function Home() {
   const uploading = upload.kind === "uploading";
   const readyCount = docs.filter((d) => d.status === "READY").length;
 
-  const loadDocs = useCallback(async () => {
-    try {
-      const res = await fetch("/api/documents", { cache: "no-store" });
-      if (res.ok) setDocs(await res.json());
-    } catch {
-      // keep the current list if the request fails
-    }
-  }, []);
+  async function refreshDocs() {
+    const list = await fetchDocs();
+    if (list) setDocs(list);
+  }
 
   useEffect(() => {
-    loadDocs();
-  }, [loadDocs]);
+    let cancelled = false;
+    fetchDocs().then((list) => {
+      if (!cancelled && list) setDocs(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Follow the newest text only while the reader is already near the bottom.
   useEffect(() => {
@@ -114,7 +174,7 @@ export default function Home() {
     } catch {
       setUpload({ kind: "error", text: "Couldn’t reach the server. Check your connection and try again." });
     }
-    loadDocs();
+    refreshDocs();
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -122,6 +182,13 @@ export default function Home() {
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && !uploading) uploadFile(file);
+  }
+
+  function showSource(messageIndex: number, n: number) {
+    setOpenSource((o) => ({ ...o, [messageIndex]: n }));
+    requestAnimationFrame(() => {
+      document.getElementById(`source-${messageIndex}-${n}`)?.scrollIntoView({ block: "nearest" });
+    });
   }
 
   async function ask() {
@@ -165,6 +232,8 @@ export default function Home() {
           const event = JSON.parse(line);
           if (event.type === "sources") update((msg) => ({ ...msg, sources: event.sources }));
           else if (event.type === "token") update((msg) => ({ ...msg, content: msg.content + event.text }));
+          else if (event.type === "citations")
+            update((msg) => ({ ...msg, citations: { cited: event.cited, invalid: event.invalid } }));
           else if (event.type === "error") update((msg) => ({ ...msg, error: event.message }));
         }
       }
@@ -319,18 +388,33 @@ export default function Home() {
               </div>
             )}
 
-            {messages.map((msg, i) =>
-              msg.role === "user" ? (
-                <div
-                  key={i}
-                  className="ml-auto w-fit max-w-[85%] break-words rounded-2xl rounded-br-sm bg-blue-600 px-4 py-2 text-white"
-                >
-                  {msg.content}
-                </div>
-              ) : (
+            {messages.map((msg, i) => {
+              if (msg.role === "user") {
+                return (
+                  <div
+                    key={i}
+                    className="ml-auto w-fit max-w-[85%] wrap-break-words rounded-2xl rounded-br-sm bg-blue-600 px-4 py-2 text-white"
+                  >
+                    {msg.content}
+                  </div>
+                );
+              }
+
+              const done = !(busy && i === lastIndex);
+              const sourceCount = msg.sources?.length ?? 0;
+              const cites = msg.citations ?? extractCitations(msg.content, sourceCount);
+              const citedSources = cites.cited
+                .map((n) => msg.sources?.find((s) => s.n === n))
+                .filter((s): s is Source => Boolean(s));
+
+              return (
                 <div key={i} className="max-w-[68ch]">
                   {msg.content ? (
-                    <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                    <AnswerText
+                      text={msg.content}
+                      sourceCount={sourceCount}
+                      onOpen={(n) => showSource(i, n)}
+                    />
                   ) : busy && i === lastIndex && !msg.error ? (
                     <p className={`flex items-center gap-2 text-sm ${muted}`}>
                       <Spinner />
@@ -340,26 +424,56 @@ export default function Home() {
 
                   {msg.error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{msg.error}</p>}
 
-                  {msg.sources && msg.sources.length > 0 && (
-                    <details className={`mt-3 text-sm ${muted}`}>
-                      <summary className={`w-fit cursor-pointer rounded ${focusRing}`}>
-                        Sources ({msg.sources.length})
-                      </summary>
-                      <ul className="mt-2 space-y-3">
-                        {msg.sources.map((s) => (
-                          <li key={s.n}>
-                            <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                              [{s.n}] {s.title}, page {s.page}
-                            </span>
-                            <span className="mt-0.5 line-clamp-3 block">{s.text}</span>
-                          </li>
-                        ))}
+                  {done && citedSources.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium">Sources</p>
+                      <ul className="mt-2 space-y-2">
+                        {citedSources.map((s) => {
+                          const isOpen = openSource[i] === s.n;
+                          return (
+                            <li key={s.n} id={`source-${i}-${s.n}`} className={`rounded-lg border ${border}`}>
+                              <button
+                                type="button"
+                                aria-expanded={isOpen}
+                                onClick={() => setOpenSource((o) => ({ ...o, [i]: isOpen ? null : s.n }))}
+                                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${focusRing}`}
+                              >
+                                <span className={pill}>{s.n}</span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  {s.title}, page {s.page}
+                                </span>
+                                <span aria-hidden className={muted}>
+                                  {isOpen ? "−" : "+"}
+                                </span>
+                              </button>
+                              {isOpen && (
+                                <blockquote
+                                  tabIndex={0}
+                                  className={`max-h-60 overflow-auto border-t px-3 py-2 text-sm leading-relaxed dark:scheme-dark ${border} ${muted} ${focusRing}`}
+                                >
+                                  {s.text}
+                                </blockquote>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
-                    </details>
+                    </div>
+                  )}
+
+                  {done && msg.content && !msg.error && sourceCount > 0 && cites.cited.length === 0 && (
+                    <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+                      This answer cites no sources.
+                    </p>
+                  )}
+                  {done && cites.invalid.length > 0 && (
+                    <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+                      Some references in this answer don’t match any source and were ignored.
+                    </p>
                   )}
                 </div>
-              ),
-            )}
+              );
+            })}
           </div>
 
           <form
@@ -404,7 +518,10 @@ export default function Home() {
             {messages.length > 0 && !busy && (
               <button
                 type="button"
-                onClick={() => setMessages([])}
+                onClick={() => {
+                  setMessages([]);
+                  setOpenSource({});
+                }}
                 className={`mt-2 rounded text-xs underline-offset-2 hover:underline ${muted} ${focusRing}`}
               >
                 Clear conversation

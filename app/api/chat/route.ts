@@ -1,6 +1,7 @@
 import { hybridSearch } from "../../../lib/search";
 import { buildUserPrompt } from "../../../lib/prompt";
 import { streamAnswer } from "../../../lib/llm";
+import { extractCitations } from "../../../lib/citations";
 
 const NOT_FOUND = "I couldn't find anything relevant to that in your documents.";
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
           return;
         }
 
+        let answer = "";
         let first = true;
         for await (const piece of streamAnswer(buildUserPrompt(question, sources))) {
           if (closed) break; // client left: stop generating
@@ -65,8 +67,18 @@ export async function POST(request: Request) {
             console.log(`[chat] first token after ${Date.now() - t0}ms`);
             first = false;
           }
+          answer += piece;
           send({ type: "token", text: piece });
         }
+
+        if (!closed) {
+          const citations = extractCitations(answer, sources.length);
+          if (citations.invalid.length > 0) {
+            console.warn(`[chat] answer cited unknown sources: ${citations.invalid.join(", ")}`);
+          }
+          send({ type: "citations", cited: citations.cited, invalid: citations.invalid });
+        }
+
         send({ type: "done" });
         console.log(`[chat] finished in ${Date.now() - t0}ms${closed ? " (client disconnected)" : ""}`);
       } catch (err) {
