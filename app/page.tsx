@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 
 type Source = { n: number; title: string; page: number; chunkIndex: number; text: string };
 type Message = {
@@ -9,42 +9,130 @@ type Message = {
   sources?: Source[];
   error?: string;
 };
+type Doc = {
+  id: string;
+  title: string;
+  status: "PENDING" | "PROCESSING" | "READY" | "FAILED";
+  pageCount: number | null;
+  _count: { chunks: number };
+};
+type UploadState =
+  | { kind: "idle" }
+  | { kind: "uploading"; name: string }
+  | { kind: "success" | "info" | "error"; text: string };
+
+const MAX_BYTES = 10 * 1024 * 1024;
+const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+const muted = "text-neutral-500 dark:text-neutral-400";
+const border = "border-neutral-200 dark:border-neutral-800";
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="inline-block size-4 shrink-0 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
+    />
+  );
+}
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState("");
-  const abortRef = useRef<AbortController | null>(null);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [upload, setUpload] = useState<UploadState>({ kind: "idle" });
+  const [dragging, setDragging] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
-  async function upload(file: File) {
-    setUploadStatus(`Uploading ${file.name}... this can take up to 30 seconds`);
+  const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const questionRef = useRef<HTMLInputElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
+
+  const uploading = upload.kind === "uploading";
+  const readyCount = docs.filter((d) => d.status === "READY").length;
+
+  const loadDocs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/documents", { cache: "no-store" });
+      if (res.ok) setDocs(await res.json());
+    } catch {
+      // keep the current list if the request fails
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDocs();
+  }, [loadDocs]);
+
+  // Follow the newest text only while the reader is already near the bottom.
+  useEffect(() => {
+    const onScroll = () => {
+      stickRef.current =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0 && stickRef.current) {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [messages]);
+
+  async function uploadFile(file: File) {
+    if (file.type !== "application/pdf") {
+      setUpload({ kind: "error", text: "Only PDF files are supported. Choose a .pdf file." });
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setUpload({ kind: "error", text: "That file is over 10 MB. Choose a smaller PDF." });
+      return;
+    }
+
+    setUpload({ kind: "uploading", name: file.name });
     const form = new FormData();
     form.append("file", file);
+
     try {
       const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      setUploadStatus(
-        res.ok ? `Ready: ${file.name} (${data.chunks} chunks)` : `Failed: ${data.error ?? "unknown error"}`,
-      );
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 201) {
+        setUpload({
+          kind: "success",
+          text: `Added “${file.name}” (${data.pages} pages, ${data.chunks} sections).`,
+        });
+      } else if (res.status === 409) {
+        setUpload({ kind: "info", text: `“${file.name}” is already in your documents.` });
+      } else {
+        setUpload({ kind: "error", text: data.error ?? "Upload failed. Try again." });
+      }
     } catch {
-      setUploadStatus("Upload failed. Please try again.");
+      setUpload({ kind: "error", text: "Couldn’t reach the server. Check your connection and try again." });
     }
+    loadDocs();
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && !uploading) uploadFile(file);
   }
 
   async function ask() {
     const question = input.trim();
     if (!question || busy) return;
 
+    stickRef.current = true;
     setInput("");
     setBusy(true);
-    setMessages((m) => [
-      ...m,
-      { role: "user", content: question },
-      { role: "assistant", content: "" },
-    ]);
+    setMessages((m) => [...m, { role: "user", content: question }, { role: "assistant", content: "" }]);
 
-    // Update the newest (assistant) message
     const update = (fn: (msg: Message) => Message) =>
       setMessages((m) => m.map((msg, i) => (i === m.length - 1 ? fn(msg) : msg)));
 
@@ -70,7 +158,7 @@ export default function Home() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        buffer = lines.pop() ?? ""; // keep the incomplete last line for the next read
+        buffer = lines.pop() ?? ""; // keep the unfinished last line for the next read
 
         for (const line of lines) {
           if (!line.trim()) continue;
@@ -82,87 +170,250 @@ export default function Home() {
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
-        update((msg) => ({ ...msg, error: "Could not get an answer. Please try again." }));
+        update((msg) => ({ ...msg, error: "Couldn’t get an answer. Check your connection and try again." }));
       }
     } finally {
       setBusy(false);
       abortRef.current = null;
+      questionRef.current?.focus();
     }
   }
 
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    ask();
+  }
+
+  const lastIndex = messages.length - 1;
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Document Q&amp;A</h1>
-        <p className="text-sm text-gray-500">Upload a PDF, then ask questions about it.</p>
+    <div className="mx-auto min-h-dvh w-full max-w-5xl px-4 md:px-6">
+      <header className="py-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Document Q&amp;A</h1>
+        <p className={`mt-1 text-sm ${muted}`}>
+          Add PDFs, then ask questions. Every answer shows the pages it came from.
+        </p>
       </header>
 
-      <section className="rounded border p-4">
-        <label className="block text-sm font-medium">Upload a text-based PDF (max 10 MB)</label>
-        <input
-          type="file"
-          accept="application/pdf"
-          className="mt-2 block text-sm"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(file);
-            e.target.value = "";
-          }}
-        />
-        {uploadStatus && <p className="mt-2 text-sm text-gray-600">{uploadStatus}</p>}
-      </section>
+      <div className="md:grid md:grid-cols-[17rem_minmax(0,1fr)] md:gap-8">
+        {/* Documents */}
+        <aside className="md:sticky md:top-6 md:self-start">
+          <button
+            type="button"
+            aria-expanded={panelOpen}
+            aria-controls="documents-panel"
+            onClick={() => setPanelOpen((o) => !o)}
+            className={`flex min-h-11 w-full items-center justify-between rounded-lg border px-3 text-sm font-medium md:hidden ${border} ${focusRing}`}
+          >
+            <span>Documents ({readyCount})</span>
+            <span aria-hidden>{panelOpen ? "−" : "+"}</span>
+          </button>
 
-      <section className="flex flex-1 flex-col gap-4">
-        {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "self-end rounded bg-blue-600 px-3 py-2 text-white" : ""}>
-            {msg.role === "user" ? (
-              msg.content
+          <div
+            id="documents-panel"
+            className={`${panelOpen ? "block" : "hidden"} mt-3 space-y-4 md:mt-0 md:block`}
+          >
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={`rounded-lg border border-dashed p-4 text-center transition-colors ${
+                dragging
+                  ? "border-blue-600 bg-blue-600/10"
+                  : "border-neutral-300 dark:border-neutral-700"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                tabIndex={-1}
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+              >
+                {uploading && <Spinner />}
+                {uploading ? "Adding…" : "Choose PDF"}
+              </button>
+              <p className={`mt-2 text-xs ${muted}`}>or drop a file here. Text-based PDFs up to 10 MB.</p>
+            </div>
+
+            <p
+              role="status"
+              className={`text-sm ${
+                upload.kind === "error"
+                  ? "text-red-600 dark:text-red-400"
+                  : upload.kind === "success"
+                    ? "text-green-700 dark:text-green-400"
+                    : muted
+              }`}
+            >
+              {upload.kind === "uploading" ? (
+                <span className="flex items-start gap-2">
+                  <Spinner />
+                  <span>Reading and indexing “{upload.name}”. This can take up to 30 seconds.</span>
+                </span>
+              ) : upload.kind === "idle" ? null : (
+                upload.text
+              )}
+            </p>
+
+            {docs.length === 0 ? (
+              <p className={`text-sm ${muted}`}>No documents yet. Add a PDF to get started.</p>
             ) : (
-              <div>
-                <p className="whitespace-pre-wrap">
-                  {msg.content || (busy && i === messages.length - 1 && !msg.error ? "Thinking..." : "")}
-                </p>
-                {msg.error && <p className="text-sm text-red-600">{msg.error}</p>}
-                {msg.sources && msg.sources.length > 0 && (
-                  <details className="mt-2 text-sm text-gray-600">
-                    <summary className="cursor-pointer">Sources ({msg.sources.length})</summary>
-                    <ul className="mt-1 space-y-2">
-                      {msg.sources.map((s) => (
-                        <li key={s.n}>
-                          <strong>
-                            [{s.n}] {s.title}, p.{s.page}
-                          </strong>
-                          <div className="text-gray-500">{s.text.slice(0, 300)}...</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </div>
+              <ul className="space-y-2">
+                {docs.map((d) => (
+                  <li
+                    key={d.id}
+                    className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${border}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium" title={d.title}>
+                        {d.title}
+                      </span>
+                      {d.pageCount !== null && (
+                        <span className={`block text-xs ${muted}`}>{d.pageCount} pages</span>
+                      )}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                        d.status === "READY"
+                          ? "bg-green-600/15 text-green-700 dark:text-green-400"
+                          : d.status === "FAILED"
+                            ? "bg-red-600/15 text-red-700 dark:text-red-400"
+                            : "bg-neutral-500/15"
+                      }`}
+                    >
+                      {d.status === "READY" ? "Ready" : d.status === "FAILED" ? "Failed" : "Indexing"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        ))}
-      </section>
+        </aside>
 
-      <div className="flex gap-2">
-        <input
-          className="flex-1 rounded border px-3 py-2"
-          placeholder="Ask a question about your documents..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && ask()}
-          disabled={busy}
-        />
-        {busy ? (
-          <button className="rounded border px-4 py-2" onClick={() => abortRef.current?.abort()}>
-            Stop
-          </button>
-        ) : (
-          <button className="rounded bg-blue-600 px-4 py-2 text-white" onClick={ask}>
-            Ask
-          </button>
-        )}
+        {/* Chat */}
+        <main className="mt-6 flex min-h-[60dvh] flex-col md:mt-0">
+          <div role="log" aria-live="polite" className="flex-1 space-y-6 pb-6">
+            {messages.length === 0 && (
+              <div className="py-10">
+                <p className="text-lg font-medium">Ask about your documents</p>
+                <p className={`mt-1 max-w-prose text-sm ${muted}`}>
+                  {readyCount === 0
+                    ? "Add a PDF first, then ask your question here."
+                    : "Try a specific question, like “What does section 3 say about deadlines?”"}
+                </p>
+              </div>
+            )}
+
+            {messages.map((msg, i) =>
+              msg.role === "user" ? (
+                <div
+                  key={i}
+                  className="ml-auto w-fit max-w-[85%] break-words rounded-2xl rounded-br-sm bg-blue-600 px-4 py-2 text-white"
+                >
+                  {msg.content}
+                </div>
+              ) : (
+                <div key={i} className="max-w-[68ch]">
+                  {msg.content ? (
+                    <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                  ) : busy && i === lastIndex && !msg.error ? (
+                    <p className={`flex items-center gap-2 text-sm ${muted}`}>
+                      <Spinner />
+                      {msg.sources ? "Writing the answer…" : "Searching your documents…"}
+                    </p>
+                  ) : null}
+
+                  {msg.error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{msg.error}</p>}
+
+                  {msg.sources && msg.sources.length > 0 && (
+                    <details className={`mt-3 text-sm ${muted}`}>
+                      <summary className={`w-fit cursor-pointer rounded ${focusRing}`}>
+                        Sources ({msg.sources.length})
+                      </summary>
+                      <ul className="mt-2 space-y-3">
+                        {msg.sources.map((s) => (
+                          <li key={s.n}>
+                            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                              [{s.n}] {s.title}, page {s.page}
+                            </span>
+                            <span className="mt-0.5 line-clamp-3 block">{s.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              ),
+            )}
+          </div>
+
+          <form
+            onSubmit={onSubmit}
+            className={`sticky bottom-0 -mx-4 border-t bg-white/95 px-4 pb-3 pt-3 backdrop-blur md:mx-0 md:px-0 dark:bg-neutral-950/95 ${border}`}
+          >
+            <label htmlFor="question" className="sr-only">
+              Your question
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="question"
+                ref={questionRef}
+                type="text"
+                autoComplete="off"
+                enterKeyHint="send"
+                maxLength={1000}
+                placeholder="Ask a question about your documents"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={busy}
+                className={`min-h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-base disabled:opacity-60 ${border} ${focusRing}`}
+              />
+              {busy ? (
+                <button
+                  type="button"
+                  onClick={() => abortRef.current?.abort()}
+                  className={`min-h-11 shrink-0 rounded-lg border px-4 text-sm font-medium ${border} ${focusRing}`}
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  className={`min-h-11 shrink-0 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+                >
+                  Ask
+                </button>
+              )}
+            </div>
+            {messages.length > 0 && !busy && (
+              <button
+                type="button"
+                onClick={() => setMessages([])}
+                className={`mt-2 rounded text-xs underline-offset-2 hover:underline ${muted} ${focusRing}`}
+              >
+                Clear conversation
+              </button>
+            )}
+          </form>
+          <div ref={bottomRef} />
+        </main>
       </div>
-    </main>
+    </div>
   );
 }
