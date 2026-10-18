@@ -24,6 +24,7 @@ type UploadState =
   | { kind: "success" | "info" | "error"; text: string };
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const CONVERSATION_KEY = "docqa:conversationId";
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
 const muted = "text-neutral-500 dark:text-neutral-400";
@@ -95,6 +96,7 @@ function AnswerText({
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [openSource, setOpenSource] = useState<Record<number, number | null>>({});
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -122,6 +124,32 @@ export default function Home() {
     fetchDocs().then((list) => {
       if (!cancelled && list) setDocs(list);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reload the saved conversation from the last visit.
+  useEffect(() => {
+    const saved = window.localStorage.getItem(CONVERSATION_KEY);
+    if (!saved) return;
+
+    let cancelled = false;
+    fetch(`/api/conversations/${encodeURIComponent(saved)}`, { cache: "no-store" })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          setConversationId(data.id);
+          setMessages((current) => (current.length > 0 ? current : data.messages));
+        } else if (res.status === 404) {
+          window.localStorage.removeItem(CONVERSATION_KEY);
+        }
+      })
+      .catch(() => {
+        // offline or server error: start with an empty conversation
+      });
+
     return () => {
       cancelled = true;
     };
@@ -191,6 +219,13 @@ export default function Home() {
     });
   }
 
+  function newConversation() {
+    setMessages([]);
+    setOpenSource({});
+    setConversationId(null);
+    window.localStorage.removeItem(CONVERSATION_KEY);
+  }
+
   async function ask() {
     const question = input.trim();
     if (!question || busy) return;
@@ -210,7 +245,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, conversationId }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error(`Request failed (${res.status})`);
@@ -230,7 +265,10 @@ export default function Home() {
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
-          if (event.type === "sources") update((msg) => ({ ...msg, sources: event.sources }));
+          if (event.type === "conversation") {
+            setConversationId(event.id);
+            window.localStorage.setItem(CONVERSATION_KEY, event.id);
+          } else if (event.type === "sources") update((msg) => ({ ...msg, sources: event.sources }));
           else if (event.type === "token") update((msg) => ({ ...msg, content: msg.content + event.text }));
           else if (event.type === "citations")
             update((msg) => ({ ...msg, citations: { cited: event.cited, invalid: event.invalid } }));
@@ -518,13 +556,10 @@ export default function Home() {
             {messages.length > 0 && !busy && (
               <button
                 type="button"
-                onClick={() => {
-                  setMessages([]);
-                  setOpenSource({});
-                }}
+                onClick={newConversation}
                 className={`mt-2 rounded text-xs underline-offset-2 hover:underline ${muted} ${focusRing}`}
               >
-                Clear conversation
+                New conversation
               </button>
             )}
           </form>

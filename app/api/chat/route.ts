@@ -1,15 +1,83 @@
-import { hybridSearch } from "../../../lib/search";
+import { hybridSearch, type HybridResult } from "../../../lib/search";
 import { buildUserPrompt } from "../../../lib/prompt";
 import { streamAnswer } from "../../../lib/llm";
 import { extractCitations } from "../../../lib/citations";
+import { prisma } from "../../../lib/prisma";
 
 const NOT_FOUND = "I couldn't find anything relevant to that in your documents.";
+const GENERIC_ERROR = "Something went wrong while answering. Please try again.";
+
+async function resolveConversation(id: string | null, question: string): Promise<string | null> {
+  try {
+    if (id) {
+      const found = await prisma.conversation.findUnique({ where: { id }, select: { id: true } });
+      if (found) return found.id;
+    }
+    const created = await prisma.conversation.create({
+      data: { title: question.slice(0, 80) },
+      select: { id: true },
+    });
+    return created.id;
+  } catch (err) {
+    console.error("[chat] could not load or create the conversation", err);
+    return null; // answering still works, it just won't be saved
+  }
+}
+
+type Turn = {
+  conversationId: string;
+  question: string;
+  askedAt: Date;
+  answer: string;
+  error: string | null;
+  sources: HybridResult[];
+  cited: number[];
+};
+
+async function saveTurn(t: Turn) {
+  // Explicit timestamps keep the question before its answer; inside one
+  // transaction the database's now() would give both the same value.
+  const answeredAt = new Date(Math.max(Date.now(), t.askedAt.getTime() + 1));
+  const citedSet = new Set(t.cited);
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.message.create({
+        data: { conversationId: t.conversationId, role: "USER", content: t.question, createdAt: t.askedAt },
+      });
+      await tx.message.create({
+        data: {
+          conversationId: t.conversationId,
+          role: "ASSISTANT",
+          content: t.answer,
+          error: t.error,
+          createdAt: answeredAt,
+          sources: {
+            create: t.sources.map((s, i) => ({
+              chunkId: s.id,
+              n: i + 1,
+              title: s.title,
+              page: s.page,
+              chunkIndex: s.chunkIndex,
+              text: s.text,
+              cited: citedSet.has(i + 1),
+            })),
+          },
+        },
+      });
+      await tx.conversation.update({ where: { id: t.conversationId }, data: { updatedAt: answeredAt } });
+    },
+    { timeout: 20_000 },
+  );
+}
 
 export async function POST(request: Request) {
   let question = "";
+  let conversationInput: string | null = null;
   try {
     const body = await request.json();
     question = typeof body.question === "string" ? body.question.trim() : "";
+    conversationInput = typeof body.conversationId === "string" ? body.conversationId : null;
   } catch {
     // fall through to the validation below
   }
@@ -20,6 +88,8 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const conversationId = await resolveConversation(conversationInput, question);
 
   const encoder = new TextEncoder();
   let closed = false; // set when the browser disconnects
@@ -36,54 +106,71 @@ export async function POST(request: Request) {
       };
 
       const t0 = Date.now();
+      const askedAt = new Date(t0);
+      let sources: HybridResult[] = [];
+      let answer = "";
+      let errorMessage: string | null = null;
+      let cited: number[] = [];
+
+      if (conversationId) send({ type: "conversation", id: conversationId });
 
       try {
-        const sources = await hybridSearch(question, 6);
-        console.log(`[chat] retrieval took ${Date.now() - t0}ms (${sources.length} sources)`);
-        if (closed) return;
+        try {
+          sources = await hybridSearch(question, 6);
+          console.log(`[chat] retrieval took ${Date.now() - t0}ms (${sources.length} sources)`);
 
-        send({
-          type: "sources",
-          sources: sources.map((s, i) => ({
-            n: i + 1,
-            title: s.title,
-            page: s.page,
-            chunkIndex: s.chunkIndex,
-            text: s.text,
-          })),
-        });
+          send({
+            type: "sources",
+            sources: sources.map((s, i) => ({
+              n: i + 1,
+              title: s.title,
+              page: s.page,
+              chunkIndex: s.chunkIndex,
+              text: s.text,
+            })),
+          });
 
-        if (sources.length === 0) {
-          send({ type: "token", text: NOT_FOUND });
-          send({ type: "done" });
-          return;
+          if (sources.length === 0) {
+            answer = NOT_FOUND;
+            send({ type: "token", text: NOT_FOUND });
+          } else {
+            let first = true;
+            for await (const piece of streamAnswer(buildUserPrompt(question, sources))) {
+              if (closed) break; // client left: stop generating
+              if (first) {
+                console.log(`[chat] first token after ${Date.now() - t0}ms`);
+                first = false;
+              }
+              answer += piece;
+              send({ type: "token", text: piece });
+            }
+          }
+
+          if (!closed) {
+            const citations = extractCitations(answer, sources.length);
+            cited = citations.cited;
+            if (citations.invalid.length > 0) {
+              console.warn(`[chat] answer cited unknown sources: ${citations.invalid.join(", ")}`);
+            }
+            send({ type: "citations", cited: citations.cited, invalid: citations.invalid });
+          }
+        } catch (err) {
+          if (!closed) console.error(err);
+          errorMessage = GENERIC_ERROR;
+          send({ type: "error", message: errorMessage });
         }
 
-        let answer = "";
-        let first = true;
-        for await (const piece of streamAnswer(buildUserPrompt(question, sources))) {
-          if (closed) break; // client left: stop generating
-          if (first) {
-            console.log(`[chat] first token after ${Date.now() - t0}ms`);
-            first = false;
+        // Save the turn unless the reader left mid-answer.
+        if (!closed && conversationId) {
+          try {
+            await saveTurn({ conversationId, question, askedAt, answer, error: errorMessage, sources, cited });
+          } catch (err) {
+            console.error("[chat] could not save the conversation turn", err);
           }
-          answer += piece;
-          send({ type: "token", text: piece });
-        }
-
-        if (!closed) {
-          const citations = extractCitations(answer, sources.length);
-          if (citations.invalid.length > 0) {
-            console.warn(`[chat] answer cited unknown sources: ${citations.invalid.join(", ")}`);
-          }
-          send({ type: "citations", cited: citations.cited, invalid: citations.invalid });
         }
 
         send({ type: "done" });
         console.log(`[chat] finished in ${Date.now() - t0}ms${closed ? " (client disconnected)" : ""}`);
-      } catch (err) {
-        if (!closed) console.error(err);
-        send({ type: "error", message: "Something went wrong while answering. Please try again." });
       } finally {
         if (!closed) {
           try {
