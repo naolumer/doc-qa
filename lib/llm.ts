@@ -2,10 +2,10 @@ import { GoogleGenAI } from "@google/genai";
 import { SYSTEM_INSTRUCTION } from "./prompt";
 
 export const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL ?? "gemini-3.1-flash-lite";
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL ?? "gemini-2.5-flash-lite";
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite";
 
 const MODELS = [CHAT_MODEL, FALLBACK_MODEL, CHAT_MODEL]; // up to 3 attempts
-const FIRST_TOKEN_TIMEOUT_MS = 15_000;
+const FIRST_TOKEN_TIMEOUT_MS = Number(process.env.LLM_FIRST_TOKEN_TIMEOUT_MS ?? 15_000);
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -46,7 +46,8 @@ export async function* streamAnswer(userPrompt: string): AsyncGenerator<string> 
       lastError = err;
       const status = (err as { status?: number }).status;
       const timedOut = controller.signal.aborted;
-      const retryable = timedOut || status === 503 || status === 429;
+      // 404 means this model isn't available to the key, so move on to the next one.
+      const retryable = timedOut || status === 503 || status === 429 || status === 404;
       if (!retryable) throw err;
 
       console.error(`[llm] ${model} failed (${timedOut ? "timeout" : status}), attempt ${attempt + 1}/${MODELS.length}`);
