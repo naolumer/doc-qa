@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "eval:retrieval": "tsx evals/retrieval.ts"
+    "eval:retrieval": "tsx evals/retrieval.ts",
+    "eval:answers": "tsx evals/answers.ts"
   },
   "dependencies": {
     "next": "16.4.0",
