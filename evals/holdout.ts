@@ -1,0 +1,26 @@
+import type { EvalCase } from "./dataset";
+
+export const holdout: EvalCase[] = [
+  { id: "h01", kind: "fact", question: "How old was the narrator when the story begins?",
+    expected: "Twenty-seven.", evidence: ["When I was twenty-seven years old"] },
+  { id: "h02", kind: "fact", question: "How much money did the narrator have when he reached London?",
+    expected: "Only one dollar.", evidence: ["had only a dollar in my pocket"] },
+  { id: "h03", kind: "paraphrase", question: "Where was the narrator staying once he had money?",
+    expected: "An expensive private hotel in Hanover Square.", evidence: ["expensive private hotel in Hanover Square"] },
+  { id: "h04", kind: "paraphrase", question: "Why couldn't the narrator pick up the pear?",
+    expected: "Passers-by kept noticing what he was about to do, so he had to pretend he wasn't interested.",
+    evidence: ["pretended that I hadn’t been thinking about the pear at all"] },
+  { id: "h05", kind: "fact", question: "What did the landlord say when the narrator offered the million-pound note?",
+    expected: "He couldn't change it, but was willing to let the bill wait and let the account run.",
+    evidence: ["he was quite willing to let the trifle stand over till another time"] },
+  { id: "h06", kind: "fact", question: "What card game did the guests play after the dinner fell through?",
+    expected: "Cribbage, for sixpence a game.", evidence: ["we all played cribbage, sixpence a game"] },
+  { id: "h07", kind: "paraphrase", question: "Which brother lost the bet, and how much did he lose?",
+    expected: "Abel lost twenty thousand pounds.", evidence: ["I’ve lost twenty thousand pounds"] },
+  { id: "h08", kind: "fact", question: "Why didn't the narrator tell Portia about the mine?",
+    expected: "He was saving it as a surprise.",
+    evidence: ["I didn’t say a word to her about the mine; I saved it for a surprise"] },
+  { id: "hu1", kind: "unanswerable", question: "What is the name of the American minister?", expected: "", evidence: [] },
+  { id: "hu2", kind: "unanswerable", question: "How much did the narrator's first suit cost?", expected: "", evidence: [] },
+  { id: "hu3", kind: "unanswerable", question: "How many days did the voyage to London take?", expected: "", evidence: [] },
+];

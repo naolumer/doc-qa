@@ -2,11 +2,14 @@ import "dotenv/config";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { GoogleGenAI } from "@google/genai";
 import { hybridSearch } from "../lib/search";
-import { buildUserPrompt } from "../lib/prompt";
+import { buildUserPrompt, PROMPT_VARIANT } from "../lib/prompt";
 import { streamAnswer, CHAT_MODEL } from "../lib/llm";
 import { extractCitations } from "../lib/citations";
-import { cases, type EvalCase } from "./dataset";
+import { cases as mainCases, type EvalCase } from "./dataset";
+import { holdout } from "./holdout";
 
+const cases: EvalCase[] = process.argv.includes("--holdout") ? holdout : mainCases;
+const RETRIEVE_K = Number(process.env.RETRIEVE_K ?? 6);
 const JUDGE_MODEL = process.env.GEMINI_JUDGE_MODEL ?? CHAT_MODEL;
 const NOT_FOUND = "I couldn't find anything relevant to that in your documents.";
 
@@ -133,7 +136,7 @@ async function generate(c: EvalCase): Promise<CaseRun> {
   const needles = c.evidence.map(norm);
   const hasEvidence = (text: string) => needles.length > 0 && needles.some((n) => norm(text).includes(n));
 
-  const found = await hybridSearch(c.question, 6);
+  const found = await hybridSearch(c.question, RETRIEVE_K);
   const sources: Source[] = found.map((s, i) => ({
     n: i + 1,
     title: s.title,
@@ -262,7 +265,9 @@ async function main() {
   }
   const save = () => writeFileSync(file, JSON.stringify(store, null, 2));
 
-  console.log(`Answer model: ${CHAT_MODEL}. Judge model: ${JUDGE_MODEL}. ${cases.length} cases.\n`);
+  console.log(
+    `Answer model: ${CHAT_MODEL}. Judge model: ${JUDGE_MODEL}. Prompt: ${PROMPT_VARIANT}. Sources: ${RETRIEVE_K}. ${cases.length} cases.\n`,
+  );
 
   let incomplete = 0;
   for (const [i, c] of cases.entries()) {
