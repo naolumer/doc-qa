@@ -79,3 +79,11 @@ model MessageSource {
 
   @@index([messageId])
 }
+
+model RateLimit {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+}

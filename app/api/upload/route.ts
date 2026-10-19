@@ -9,6 +9,14 @@ import { saveChunks } from "../../../lib/store";
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(request: Request) {
+
+    if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "Uploads are turned off in this public demo. Run the project locally to add your own documents." },
+      { status: 403 },
+    );
+  }
+  
   const formData = await request.formData();
   const file = formData.get("file");
 

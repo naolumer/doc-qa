@@ -3,9 +3,13 @@ import { buildUserPrompt } from "../../../lib/prompt";
 import { streamAnswer } from "../../../lib/llm";
 import { extractCitations } from "../../../lib/citations";
 import { prisma } from "../../../lib/prisma";
+import { hit, clientIp } from "../../../lib/rate-limit";
 
 const NOT_FOUND = "I couldn't find anything relevant to that in your documents.";
 const GENERIC_ERROR = "Something went wrong while answering. Please try again.";
+
+const PER_VISITOR_PER_HOUR = Number(process.env.CHAT_LIMIT_PER_HOUR ?? 20);
+const GLOBAL_PER_DAY = Number(process.env.CHAT_LIMIT_PER_DAY ?? 300);
 
 async function resolveConversation(id: string | null, question: string): Promise<string | null> {
   try {
@@ -71,6 +75,14 @@ async function saveTurn(t: Turn) {
   );
 }
 
+/** A normal (200) stream carrying one error event, so the page shows the message as it does any chat error. */
+function limitedResponse(message: string) {
+  const body = JSON.stringify({ type: "error", message }) + "\n" + JSON.stringify({ type: "done" }) + "\n";
+  return new Response(body, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
 export async function POST(request: Request) {
   let question = "";
   let conversationInput: string | null = null;
@@ -87,6 +99,23 @@ export async function POST(request: Request) {
       { error: 'Send JSON like {"question": "..."} (max 1000 characters).' },
       { status: 400 },
     );
+  }
+
+  // Rate limits: per visitor per hour, and a global daily cap that protects the model quota.
+  try {
+    const visitor = await hit(`chat:ip:${clientIp(request)}`, PER_VISITOR_PER_HOUR, 3600);
+    if (!visitor.allowed) {
+      return limitedResponse(
+        `You’ve reached the limit of ${PER_VISITOR_PER_HOUR} questions per hour in this demo. Please try again later.`,
+      );
+    }
+    const day = new Date().toISOString().slice(0, 10);
+    const global = await hit(`chat:global:${day}`, GLOBAL_PER_DAY, 86400);
+    if (!global.allowed) {
+      return limitedResponse("This demo has reached its daily question limit. Please try again tomorrow.");
+    }
+  } catch (err) {
+    console.error("[chat] rate limiter failed, allowing the request", err);
   }
 
   const conversationId = await resolveConversation(conversationInput, question);
