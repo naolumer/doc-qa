@@ -11,8 +11,14 @@
     "eval:answers": "tsx evals/answers.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.8",
     "next": "16.4.0",
     "pdf-parse": "^2.4.5",
+    "pg": "^8.23.1",
+    "prisma": "^7.10.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "^4.6.7"
@@ -20,7 +26,6 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
-    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
@@ -28,5 +33,10 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "esbuild@0.28.2": true
   }
 }
