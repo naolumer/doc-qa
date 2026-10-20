@@ -5,8 +5,6 @@ Ask questions about PDFs and get answers that cite the pages they came from. Bui
 **Live demo:** https://doc-qa-mu.vercel.app
 Uploads are turned off in the public demo (see [Why uploads are off in the demo](#why-uploads-are-off-in-the-demo)). Two sample documents are preloaded: a short story by Mark Twain and the Bitcoin whitepaper.
 
-![Desktop view: an answer with numbered citations and an expanded source passage](docs/screenshots/chat-desktop.png)
-
 ## What it does
 
 - Reads text-based PDFs (up to 10 MB) and detects duplicate uploads by content hash.
@@ -15,27 +13,6 @@ Uploads are turned off in the public demo (see [Why uploads are off in the demo]
 - Saves conversations, including which passages each answer used, and restores them after a refresh.
 - Works on phones and with a keyboard.
 
-<p>
-  <img src="docs/screenshots/chat-mobile.png" alt="Phone view with the documents panel collapsed" width="280">
-  <img src="docs/screenshots/refusal.png" alt="A question the documents cannot answer, with a refusal" width="480">
-</p>
-
-## How it works
-
-```mermaid
-flowchart LR
-  A["PDF upload"] --> B["Extract text per page"]
-  B --> C["Split into chunks (about 2000 characters, 300 overlap)"]
-  C --> D["Embed with Gemini (1536 dimensions)"]
-  D --> E[("Postgres + pgvector")]
-  Q["Question"] --> F["Embed question"]
-  F --> G["Vector search + keyword search"]
-  E --> G
-  G --> H["Reciprocal rank fusion + relevance gate"]
-  H --> I["Top 6 passages to the chat model"]
-  I --> J["Streamed answer with [S1], [S2] citations"]
-  J --> K["Validate citations, show only the cited sources"]
-```
 
 ## Design decisions
 
