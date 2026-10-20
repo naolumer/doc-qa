@@ -1,22 +1,26 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/prisma";
-import { extractPages, hasExtractableText } from "../../../lib/pdf";
-import { chunkPages } from "../../../lib/chunk";
-import { embedTexts } from "../../../lib/embed";
-import { saveChunks } from "../../../lib/store";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(request: Request) {
-
-    if (process.env.DEMO_MODE === "true") {
+  if (process.env.DEMO_MODE === "true") {
     return NextResponse.json(
       { error: "Uploads are turned off in this public demo. Run the project locally to add your own documents." },
       { status: 403 },
     );
   }
-  
+
+  // Loaded only when uploads are enabled, so a demo deployment never touches the PDF libraries.
+  const [{ prisma }, { extractPages, hasExtractableText }, { chunkPages }, { embedTexts }, { saveChunks }] =
+    await Promise.all([
+      import("../../../lib/prisma"),
+      import("../../../lib/pdf"),
+      import("../../../lib/chunk"),
+      import("../../../lib/embed"),
+      import("../../../lib/store"),
+    ]);
+
   const formData = await request.formData();
   const file = formData.get("file");
 
